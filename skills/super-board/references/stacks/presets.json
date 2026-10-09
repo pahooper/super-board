@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "_doc": "Starter stacks for new projects. Read by .claude/bin/super-board-stack.py (presets / preset / scaffold) and by onboard step 4. Commands run from the repo root; a component in a subfolder prefixes `cd <path> &&`. `scaffold` ops run in order: `run` (argv, cwd stage|project), `merge` (copy a stage folder into the project, never overwriting), `scripts` (add package.json scripts that are missing), `templates` (copy templates/<id>/ in, never overwriting), `ci` (write .github/workflows/ci.yml from the stack). Add a preset: a block here plus templates/<id>/, then a case in tests/test-stack.sh.",
+  "categories": [
+    {"id": "web", "label": "Web app", "description": "pages in a browser", "presets": ["web-sveltekit", "web-react"]},
+    {"id": "desktop", "label": "Desktop app", "description": "installable app for Mac, Windows, Linux", "presets": ["tauri-svelte"]},
+    {"id": "cli", "label": "Command-line tool or library", "description": "runs in a terminal or is imported by other code", "presets": ["rust-cli"]},
+    {"id": "api", "label": "API or backend service", "description": "no UI; other programs call it", "presets": ["python-app", "go-service"]}
+  ],
+  "presets": [
+    {
+      "id": "web-sveltekit",
+      "label": "SvelteKit (TypeScript)",
+      "description": "Svelte 5 · Vitest unit tests · Playwright browser tests · pnpm",
+      "generator": "npx sv create",
+      "qa_mode": "browser",
+      "components": [
+        {"name": "web", "path": ".", "language": "typescript", "framework": "sveltekit", "package_manager": "pnpm",
+         "test": {"unit": {"command": "pnpm exec vitest run", "skill": "vitest"},
+                  "integration": null,
+                  "e2e": {"command": "pnpm exec playwright test", "skill": "playwright-best-practices"}},
+         "checks": ["pnpm run check"],
+         "skills": []}
+      ],
+      "scaffold": [
+        {"run": ["npx", "-y", "sv@latest", "create", "{name}", "--template", "minimal", "--types", "ts", "--no-add-ons", "--no-install"]},
+        {"merge": "{name}"},
+        {"run": ["pnpm", "install"], "cwd": "project"},
+        {"run": ["pnpm", "add", "-D", "vitest", "@playwright/test"], "cwd": "project"},
+        {"scripts": {"test": "vitest run", "test:e2e": "playwright test"}},
+        {"templates": true},
+        {"ci": true}
+      ]
+    },
+    {
+      "id": "web-react",
+      "label": "React + Vite (TypeScript)",
+      "description": "React · Vitest unit tests · Playwright browser tests · pnpm",
+      "generator": "npm create vite",
+      "qa_mode": "browser",
+      "components": [
+        {"name": "web", "path": ".", "language": "typescript", "framework": "react", "package_manager": "pnpm",
+         "test": {"unit": {"command": "pnpm exec vitest run", "skill": "vitest"},
+                  "integration": null,
+                  "e2e": {"command": "pnpm exec playwright test", "skill": "playwright-best-practices"}},
+         "checks": ["pnpm exec tsc -b", "pnpm run lint"],
+         "skills": []}
+      ],
+      "scaffold": [
+        {"run": ["npm", "create", "-y", "vite@latest", "{name}", "--", "--template", "react-ts", "--no-interactive"]},
+        {"merge": "{name}"},
+        {"run": ["pnpm", "install"], "cwd": "project"},
+        {"run": ["pnpm", "add", "-D", "vitest", "@playwright/test"], "cwd": "project"},
+        {"scripts": {"test": "vitest run", "test:e2e": "playwright test"}},
+        {"templates": true},
+        {"ci": true}
+      ]
+    },
+    {
+      "id": "tauri-svelte",
+      "label": "Tauri 2 + Svelte (TypeScript + Rust)",
+      "description": "SvelteKit front end · Rust core · Vitest + cargo test · pnpm",
+      "generator": "npm create tauri-app",
+      "qa_mode": "tests-only",
+      "components": [
+        {"name": "core", "path": "src-tauri", "language": "rust", "framework": "tauri", "package_manager": "cargo",
+         "test": {"unit": {"command": "cargo test --manifest-path src-tauri/Cargo.toml", "skill": null},
+                  "integration": null,
+                  "e2e": null},
+         "checks": ["cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"],
+         "skills": []},
+        {"name": "ui", "path": ".", "language": "typescript", "framework": "sveltekit", "package_manager": "pnpm",
+         "test": {"unit": {"command": "pnpm exec vitest run", "skill": "vitest"},
+                  "integration": null,
+                  "e2e": null},
+         "checks": ["pnpm run check"],
+         "skills": []}
+      ],
+      "notes": "Linux builds need the Tauri system libraries (webkit2gtk 4.1 and friends): https://v2.tauri.app/start/prerequisites/. End-to-end tests (WebdriverIO + tauri-driver) are left to a ticket; QA runs the tests.",
+      "scaffold": [
+        {"run": ["npm", "create", "-y", "tauri-app@latest", "{name}", "--", "--template", "svelte-ts", "--manager", "pnpm", "--yes"]},
+        {"merge": "{name}"},
+        {"run": ["pnpm", "install"], "cwd": "project"},
+        {"run": ["pnpm", "add", "-D", "vitest"], "cwd": "project"},
+        {"scripts": {"test": "vitest run"}},
+        {"templates": true},
+        {"ci": true}
+      ]
+    },
+    {
+      "id": "rust-cli",
+      "label": "Rust CLI",
+      "description": "cargo · cargo test (unit + binary smoke test) · clippy",
+      "generator": "cargo init",
+      "qa_mode": "tests-only",
+      "components": [
+        {"name": "cli", "path": ".", "language": "rust", "framework": "bin", "package_manager": "cargo",
+         "test": {"unit": {"command": "cargo test", "skill": null},
+                  "integration": null,
+                  "e2e": null},
+         "checks": ["cargo clippy --all-targets -- -D warnings", "cargo fmt --check"],
+         "skills": []}
+      ],
+      "scaffold": [
+        {"run": ["cargo", "init", "--name", "{name}", "--vcs", "none"]},
+        {"merge": "."},
+        {"templates": true},
+        {"ci": true}
+      ]
+    },
+    {
+      "id": "python-app",
+      "label": "Python (uv)",
+      "description": "uv · pytest · ruff",
+      "generator": "uv init",
+      "qa_mode": "tests-only",
+      "components": [
+        {"name": "app", "path": ".", "language": "python", "framework": null, "package_manager": "uv",
+         "test": {"unit": {"command": "uv run pytest -q", "skill": null},
+                  "integration": null,
+                  "e2e": null},
+         "checks": ["uv run ruff check ."],
+         "skills": []}
+      ],
+      "scaffold": [
+        {"run": ["uv", "init", "--app", "--name", "{name}", "--vcs", "none"]},
+        {"merge": "."},
+        {"run": ["uv", "add", "--dev", "pytest", "ruff"], "cwd": "project"},
+        {"templates": true},
+        {"ci": true}
+      ]
+    },
+    {
+      "id": "go-service",
+      "label": "Go",
+      "description": "go modules · go test · go vet",
+      "generator": "go mod init",
+      "qa_mode": "tests-only",
+      "components": [
+        {"name": "service", "path": ".", "language": "go", "framework": null, "package_manager": "go",
+         "test": {"unit": {"command": "go test ./...", "skill": null},
+                  "integration": null,
+                  "e2e": null},
+         "checks": ["go vet ./..."],
+         "skills": []}
+      ],
+      "scaffold": [
+        {"run": ["go", "mod", "init", "{module}"], "cwd": "project"},
+        {"templates": true},
+        {"ci": true}
+      ]
+    }
+  ],
+  "skills": {
+    "_doc": "Mechanics skills a stack layer can load, and how to install each. A runner with no entry has no mechanics skill: workers use mattpocock-skills:tdd plus the runner command.",
+    "vitest": {"install": "npx -y skills@latest add antfu/skills --skill vitest -a claude-code -y"},
+    "playwright-best-practices": {"install": "npx -y skills@latest add currents-dev/playwright-best-practices-skill -a claude-code -y"},
+    "testing-strategy": {"install": "npx -y skills@latest add anthropics/knowledge-work-plugins --skill testing-strategy -a claude-code -y"}
+  },
+  "runners": {
+    "_doc": "Choices onboard offers when the user changes one layer (≤ 4 per language and layer; Other = type a command).",
+    "typescript": {"unit": ["vitest", "jest", "node --test"], "e2e": ["playwright", "cypress", "webdriverio"]},
+    "javascript": {"unit": ["vitest", "jest", "node --test"], "e2e": ["playwright", "cypress", "webdriverio"]},
+    "rust": {"unit": ["cargo test", "cargo nextest run"], "e2e": []},
+    "python": {"unit": ["pytest", "unittest"], "e2e": ["pytest-playwright"]},
+    "go": {"unit": ["go test ./..."], "e2e": []}
+  }
+}

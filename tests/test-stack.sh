@@ -201,4 +201,13 @@ echo "$OUT" | q '.ok == false and (.needs_system.why | test("gdk-3.0")) and (.ne
 unset SUPER_BOARD_STACKS
 pass
 
+# 13 — every lane prompt and lane doc points workers at `resolve`, so no lane guesses a runner.
+for f in workflows/super-board-wave.js scripts/super-board-codex-lane.sh skills/super-build/references/decision-policy.md \
+         skills/super-build/references/worker-preamble.md skills/super-qa/SKILL.md skills/super-qa/references/iteration-preamble.md \
+         skills/super-review/SKILL.md; do
+  grep -q 'super-board-stack.py resolve' "$f" || fail "$f must send workers to super-board-stack.py resolve"
+done
+grep -q "read \`package.json\`, don't assume" skills/super-qa/references/iteration-preamble.md && fail "QA must not hard-code package.json"
+pass
+
 echo "PASS: test-stack.sh ($n scenarios)"

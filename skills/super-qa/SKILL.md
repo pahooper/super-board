@@ -518,6 +518,9 @@ The worker (per `references/iteration-preamble.md`) must load and follow:
 - `testing-strategy` — coverage judgment per component type, and what to skip.
   Consult it for *what is worth testing*; it does not pick the layer. The
   localisation ladder in `references/iteration-preamble.md` picks the layer.
+- **The stack** — `python3 .claude/bin/super-board-stack.py resolve --config <cfg>` names
+  each component's unit / integration / e2e command and mechanics skill. Use those commands;
+  load those skills. The two below are what a TS/JS web stack usually names.
 - `vitest` — mechanics for unit and integration tests in a TS/JS repo. 19
   references (`core-expect`, `features-mocking`, `features-coverage`,
   `core-hooks`, `advanced-vi`).
@@ -637,9 +640,10 @@ See `.claude/skills/super-board/references/run.md` → Tester (first pass — re
 7. **Fail** → leave failing ACs unchecked with the reason, append a `history` row, rewrite `status` → `[qa] [report] ❌` PR comment with per-AC expected/actual + repro file:line + evidence path + "what fixed should look like" → issue comment with the failure screenshots → increment rebuild counter → move QA → Ready (label `loop:rebuild-N`). Clean up worktree.
 
 ### Pass-handoff PR comment MUST include the test command
-Every Pass-handoff PR comment includes a `Local tests:` line with the EXACT command Reviewer will re-run as the self-verification gate:
+Every Pass-handoff PR comment includes a `Local tests:` line with the EXACT command Reviewer will re-run as the self-verification gate — taken from `super-board-stack.py resolve`, never guessed:
 ```
-Local tests:  npm test --run streaming
+Local tests:  pnpm exec vitest run src/lib/streaming     (a web stack)
+Local tests:  cargo test --manifest-path src-tauri/Cargo.toml streaming     (a Tauri core)
 ```
 This is non-optional. Reviewer re-runs this command; red → bounce back to QA.
 

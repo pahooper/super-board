@@ -313,6 +313,10 @@ See `.claude/skills/super-board/references/run.md` → Reviewer. Summary of the 
 5. **Reviewer-side test rerun (always — closes Tester self-verification gap):**
    - Pull `issue-<N>-<slug>` into review worktree.
    - Re-run the EXACT command from Tester's PR `Local tests:` line.
+   - Then the stack's checks for the components the diff touches:
+     `python3 .claude/bin/super-board-stack.py resolve --config <cfg>` → each component's `checks`
+     (types, lint). A `Local tests:` command that is not one of `resolve`'s runners (say `npm test`
+     in a cargo component) is a `[qa]` finding: the evidence ran the wrong thing.
    - Green → continue. Red → open new `[qa]`-prefixed thread quoting failure, move card Review → QA with `loop:rebuild-N`, exit.
 6. **Adversarial mode** (per `config.truth_gate` — `off` / `non-trivial` / `always`, default `non-trivial`): see section below.
 7. Decide per finding. First apply the Over-engineering rule to every finding collected —

@@ -512,7 +512,8 @@ Next: <builder | qa | reviewer | Eric | none>
 - ≤ 8 lines. Evidence before prose. An unchecked thing is never implied to pass.
 - NEVER list changed files — the PR shows them. No restating the issue, no adjectives.
 - Machine lines go last and do not count: `Local tests:` (Tester and Builder, the exact command
-  the Reviewer reruns), `gh-quota-on-exit:`, `blocked-by:`.
+  the Reviewer reruns — built from `super-board-stack.py resolve`, never guessed),
+  `gh-quota-on-exit:`, `blocked-by:`.
 - Run the prose through `humanizer` when installed (else the plain-words rules in
   writing-standard.md).
 - The **issue comment** is the same header plus the PR link; the PR comment carries the detail.

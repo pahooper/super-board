@@ -215,15 +215,22 @@ Sub-agent scans all linted issues + PROJECT.md to extract operational requiremen
    [ ] Test user login: testuser@example.com (issue #23)
    [ ] Stripe test secret key (issue #31)
 
-🛠  Tools the loop will need:
+🛠  Tools the loop will need (from `super-board-stack.py verify --config <cfg>`):
    [✓] gh CLI authenticated (verified)
-   [ ] Playwright Chromium → run: `npx playwright install chromium`
-   [✓] Node 20+ (verified)
+   [✓] core · cargo test --manifest-path src-tauri/Cargo.toml
+   [ ] core · cargo clippy → run: `rustup component add clippy`
+   [✓] ui · pnpm exec vitest run
+   [ ] Playwright Chromium → run: `pnpm exec playwright install chromium`   (only when qa.mode is browser)
 
 🌐 Environment:
    [✓] Target URL reachable: https://chatbot.ai-sdk.dev (200 OK)
    [ ] .env.local has OPENAI_API_KEY set
 ```
+
+The tools list is not guessed from the tickets: run `python3 .claude/bin/super-board-stack.py
+verify --config <cfg>` and turn every `missing` command into a `[ ]` line with its `fix`. A
+config with no `stack` → one `[ ]` line: "No saved stack — run `/super-board stack`" (workers
+would detect it at runtime, but nothing would gate a missing runner).
 
 Saved to `docs/super-board/pre-flight.md`. Each `[ ]` is a halt gate for `super-board run` — the loop refuses to start until all items are `[✓]`.
 

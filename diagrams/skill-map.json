@@ -103,7 +103,7 @@
       "id": "sb-onboard",
       "label": "/super-board onboard",
       "kind": "public",
-      "what": "An 8-step setup wizard (Checks · GitHub · Board · Branch · AGENTS.md · Policies · Bug sources · Review) that installs or repairs what the board needs and writes the config once.",
+      "what": "A 9-step setup wizard for a new or existing project (Checks · GitHub · Board · Stack · Branch · AGENTS.md · Policies · Bug sources · Review) that installs or repairs what the board needs and writes the config once.",
       "when": "Eric runs /super-board onboard (or /super-board:super-board onboard after a plugin install), on a new project, after an upgrade from 2.x, or to check and repair an existing setup.",
       "how": "One AskUserQuestion per step with the recommended option first; must-haves are fixed without asking by super-board-setup.py. Answers save to onboard-answers.json as they come, so a halt resumes, and repo files change only at step 8 after \"Write everything\". It ends by naming /super-board lint.",
       "source": [
@@ -5350,7 +5350,7 @@
   "notes": [
     "Refreshed to super-board v3.0.0 (feat/sb-cleanup @ b67241e1, 28 commits after cd199b2d). Source paths are repo-root-relative.",
     "Board: seven columns, no Skipped (a dropped card is closed as not planned → Done with 🤷). Labels qa · bug · feature route cards; qa skips Building; the classifier adds feature or bug, never qa. The per-board `variant` is gone and a `qa-only` config is refused with exit 65 until onboard upgrades it.",
-    "Onboarding is an 8-step wizard (Checks · GitHub · Board · Branch · AGENTS.md · Policies · Bug sources · Review) backed by super-board-setup.py (check, fix, migrate-config, names, branch, board-rank, board-migrate). New view sb-onboard; its steps are edge labels, not nodes.",
+    "Onboarding is a 9-step wizard (Checks · GitHub · Board · Stack · Branch · AGENTS.md · Policies · Bug sources · Review) backed by super-board-setup.py (check, fix, migrate-config, names, branch, board-rank, board-migrate). New view sb-onboard; its steps are edge labels, not nodes.",
     "Merge policy and DB migrations live in the merge gate (super-board-merge-policy.py): money, auth, destructive schema or a diff over auto_max_lines (400 changed lines, lockfiles/generated/snapshots/migration SQL excluded) exits 7; a migration outside allowed_envs, a failed migrate or a declared human step exits 8. Both park the card in Blocked with the 🙋 checklist and the needs-you label, with no extra column; `done` sends it back through the planner's resume list.",
     "Builder pre-flight (super-board-preflight.sh, a Pre-flight phase in super-board-wave.js, batches of 5) checks already done / in progress / file overlap / unclear / too big before any card is built. Lint has 18 criteria now: 15 = too big (split via /to-tickets), 16–18 = ticket format.",
     "Writing standard (references/writing-standard.md): commits `<emoji> [type] scope: subject` + bullets, tickets Problem · Context · Fix · AC · Risk · Blocked by, PR bodies in marker blocks rewritten per lane with super-board-pr-body.sh, comments `[role] [label] status`, prose through humanizer when installed. That is why every lane view now shows pr-body and humanizer.",

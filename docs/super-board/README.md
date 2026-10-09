@@ -43,19 +43,21 @@ merge with a hand-off; a card labelled `qa` skips Building.
 
 ## Onboarding
 
-`/super-board onboard` is an 8-step wizard. Each step opens with a numbered agenda strip and
-`N of 8 · <emoji> <Name> — <why>`, then one question with the recommended answer first.
+`/super-board onboard` is a 9-step wizard for a new or an existing project. Each step opens with
+a numbered agenda strip and `N of 9 · <emoji> <Name> — <why>`, then one question with the
+recommended answer first.
 
 | # | Step | What happens |
 |---|---|---|
 | 1 | 🔍 Checks | Fixes every must-have with no question — skills, scripts, workflows, guard hooks, settings entries, old folders (super-refine, cleanup-wt, arch-loop), config keys, labels, columns — and lists them under "Fixed for you". Asks only to install a system tool (the exact brew / apt / winget command) or sign in, then re-checks until green. An older super-board is upgraded here ("Upgraded for you"). |
 | 2 | 🔑 GitHub | Signs in and adds board access (`gh auth refresh -s project,read:project,repo`) only when missing; offers to create the repo. |
 | 3 | 🗂️ Board | Ranks your GitHub Projects by matching columns and recommends reusing the best (adds what is missing, keeps cards), or creates one with a name taken from package.json / README. |
-| 4 | 🌿 Branch | Finds branches and the deploy source; no staging → "Create staging from main" (Recommended). |
-| 5 | 📜 AGENTS.md | "Move your N CLAUDE.md rules into AGENTS.md?" — one short question per conflict, nothing lost (coverage-checked). |
-| 6 | 🛡️ Policies | Two questions: safe defaults (merge rule, push guard, migrations), and the permission lines. |
-| 7 | 📥 Bug sources | Sentry, PostHog, GitHub issues, past PRs, architecture, plus "➕ Add another source": a link, app, API URL, MCP server or command, pinged read-only before it is saved. |
-| 8 | ✅ Review | One compact table, then "Write everything?" — files change once, here. |
+| 4 | 🧱 Stack | Existing repo: detects each part (Node, Rust, Python, Go, Java, .NET, Ruby, Deno, Elixir, PHP) with its test runners and checks, preferring your CI's commands, and asks "Use this stack?" (change one part, or type your own). New folder: "What are you building?", then a starter — SvelteKit, React + Vite, Tauri 2 + Svelte, Rust CLI, Python (uv), Go — generated without touching your files, tests and CI wired, first commit made only when green. Picks the QA mode (browser for web apps, tests-only otherwise) and offers the test skills the workers load. |
+| 5 | 🌿 Branch | Finds branches and the deploy source; no staging → "Create staging from main" (Recommended). |
+| 6 | 📜 AGENTS.md | "Move your N CLAUDE.md rules into AGENTS.md?" — one short question per conflict, nothing lost (coverage-checked). |
+| 7 | 🛡️ Policies | Two questions: safe defaults (merge rule, push guard, migrations), and the permission lines. |
+| 8 | 📥 Bug sources | Sentry, PostHog, GitHub issues, past PRs, architecture, plus "➕ Add another source": a link, app, API URL, MCP server or command, pinged read-only before it is saved. |
+| 9 | ✅ Review | One compact table, then "Write everything?" — files change once, here. |
 
 Stop at any step: the answers are saved, and the next run shows them and continues. Testing a
 live site with no repo is not a board: `/super-qa <url>`. The full screen-by-screen contract is

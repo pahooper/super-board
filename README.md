@@ -6,7 +6,7 @@
 
 <p><strong>Add tasks, walk away, get merged PRs with proof.</strong></p>
 
-<p>8 skills (5 you type, 3 the board runs) · 9 commands · 6 guard hooks</p>
+<p>8 skills (5 you type, 3 the board runs) · 11 commands · 6 guard hooks · any stack, new or existing projects</p>
 
 <p>
 <img alt="Version" src="https://img.shields.io/badge/version-3.1.1-1f883d?style=flat-square">
@@ -55,9 +55,19 @@ curl -fsSL https://raw.githubusercontent.com/EricTechPro/super-board/main/get.sh
 /super-board onboard
 ```
 
-Checks · GitHub · Board · Branch · AGENTS.md · Policies · Bug sources · Review. <kbd>Enter</kbd> takes the recommended answer.
+Checks · GitHub · Board · Stack · Branch · AGENTS.md · Policies · Bug sources · Review. <kbd>Enter</kbd> takes the recommended answer.
 
-### 3. Run
+**Stack** reads an existing repo (Node, Rust, Python, Go and more, plus your CI's own commands) and asks you to confirm. An empty folder asks what you're building and generates a starter instead: SvelteKit, React + Vite, Tauri 2 + Svelte, Rust CLI, Python (uv) or Go, with the test runner and CI wired and a green first commit.
+
+### 3. Plan (new project or empty board)
+
+```
+/super-board plan
+```
+
+Matt Pocock's `grilling` → `/to-spec` → `/to-tickets` turns your idea into ordered tickets; they land in Backlog and go through `lint`.
+
+### 4. Run
 
 ```
 /super-board run my-app
@@ -99,7 +109,9 @@ Each name links to that skill's README. Adding a skill? Write its `SKILL.md` and
 ## Commands
 
 ```
-/super-board onboard          # 8-step setup, resumes
+/super-board onboard          # 9-step setup, new or existing project, resumes
+/super-board stack            # see or change runners, checks, QA mode
+/super-board plan             # idea → ordered tickets (Pocock skills)
 /super-board lint             # vague ACs?
 /super-board status           # read-only snapshot
 /super-board run <slug>       # drain the board

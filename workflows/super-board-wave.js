@@ -134,6 +134,12 @@ const BOARD_IO = () =>
   `Board moves and reads: .claude/bin/super-board-card.sh --config ${input.configPath} move <issue> <Status> ` +
   `(1 GraphQL point) · status <issue> · items. Comments, labels, PR reads: REST per .claude/skills/super-board/references/rate-limit-etiquette.md → "Price list". Read GitHub once per decision, never in a sleep loop.`
 
+// The project's stack names every runner and mechanics skill (config `stack`). Lanes read it
+// through the script so no worker guesses npm / Vitest / Playwright in a cargo or uv repo.
+const STACK = () =>
+  `Stack: before writing or running a test, run python3 .claude/bin/super-board-stack.py resolve --config ${input.configPath} --files <files you touch> ` +
+  `and use its unit/integration/e2e commands, checks and skills exactly (.claude/skills/super-build/references/decision-policy.md → "The stack"). NEVER assume npm, Vitest or Playwright.`
+
 const lanePrompt = (lane, card) => [
   READ_FAILURE,
   `Run ${LANE[lane].skill} on issue #${card.number} ("${card.title}") for a super-board workflow wave.`,
@@ -141,8 +147,12 @@ const lanePrompt = (lane, card) => [
   `create your own worktree under .claude/worktrees/, work on the issue branch, post the required PR/issue comments,`,
   `move the project card yourself, clean up the worktree on exit. Config: ${input.configPath}.`,
   BOARD_IO(),
+  STACK(),
   `Commits, PR title, PR body blocks, comments: .claude/skills/super-board/references/writing-standard.md. Rewrite only your own PR body blocks, with .claude/bin/super-board-pr-body.sh.`,
   ...(lane === 'review' ? REVIEW_MEMORY : []),
+  ...(lane === 'qa'
+    ? [`QA mode: resolve prints qa_mode. tests-only → prove each AC with the stack's tests (no crawl, no BASE_URL, no screenshots; run.md → "Test evidence format"). browser → as run.md's Tester lifecycle, screenshots for UI ACs.`]
+    : []),
   ...(lane === 'qa' && card.status === 'Ready'
     ? [`This card is labelled qa: it skips Building. Move it Ready → QA yourself, create the issue branch from the base branch, and test what is already there (run.md → "qa cards").`]
     : []),

@@ -50,7 +50,10 @@ worker memory creep:
 - `mattpocock-skills:tdd` (red spec before fix)
 - `mattpocock-skills:diagnosing-bugs` (root-cause discipline for fixes)
 - `verification-before-completion` (before claiming a fix done — no Matt Pocock equivalent)
-- `playwright-best-practices` (load when writing or refactoring a spec).
+- The stack's skills: `python3 .claude/bin/super-board-stack.py resolve --config <cfg>`
+  names each component's runners and mechanics skills — load those. In a web repo that is
+  usually `vitest` and the one below.
+- `playwright-best-practices` (when the stack's e2e layer is Playwright; load when writing or refactoring a spec).
   Reference its `core/locators.md` (data-testid first, `getByRole` fallback),
   `core/fixtures-hooks.md` (custom fixtures for auth and pre-test seeding/teardown),
   `core/test-data.md` (test data factories), `core/assertions-waiting.md` (avoid
@@ -102,10 +105,12 @@ it does not decide the layer, the ladder above does.
   — see `mattpocock-skills:tdd` on seams and the assertion anti-patterns
   (tautological, implementation-coupled, horizontally sliced).
 
-**Then the mechanics.** The library follows from the rung, and the repo decides
-it — read `package.json`, don't assume. TS/JS unit and integration → `vitest`
-(19 references: `core-expect`, `features-mocking`, `features-coverage`,
-`core-hooks`, `advanced-vi`). Browser e2e → `playwright-best-practices`.
+**Then the mechanics.** The library follows from the rung, and the stack decides
+it — `super-board-stack.py resolve` prints the command and skill per layer; don't
+assume. A TS/JS stack usually maps unit and integration → `vitest` (19 references:
+`core-expect`, `features-mocking`, `features-coverage`, `core-hooks`, `advanced-vi`)
+and browser e2e → `playwright-best-practices`. A layer the stack leaves `null` has
+no runner: write the test one rung down and say so.
 
 **Keeping the e2e.** Once the regression is pinned at its own rung, keep a thin
 e2e only if the route itself is a critical user path. Do not keep both a unit
@@ -290,7 +295,8 @@ acceptable; a fix can silently disable a feature to make a wrong spec pass.
 
 3. **Apply the minimal root-cause fix via TDD.** The failing spec is the
    red test. Make it green by changing the smallest amount of production
-   code. Then re-run `npm run lint` + `npm run check` — must stay green.
+   code. Then re-run the stack's checks for the components you touched
+   (`super-board-stack.py resolve --config <cfg> --files <files>` → `checks`) — must stay green.
 
 4. **Commit + push + open PR:**
    ```bash
@@ -744,8 +750,8 @@ npm run qa:report:render
 ```
 
 **Quality bar (must stay green before commit):**
-- `npm run lint`
-- `npm run check`
+- every `checks` command `super-board-stack.py resolve` prints for the components you
+  touched (a typical web stack: its lint and type-check scripts)
 
 **Stage explicitly (NEVER `git add .`):**
 ```bash

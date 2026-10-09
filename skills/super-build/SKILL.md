@@ -269,7 +269,8 @@ Before writing code, decide whether the ticket touches any of:
 
 If yes, read the **current official docs** for the exact surface and version first — context7
 when available, otherwise web search to the vendor's own docs, migration guide or changelog.
-Check the installed version (`package.json` / lockfile, `npm view <pkg> version` for a new dep)
+Check the installed version (the component's manifest and lockfile — `package.json`, `Cargo.toml`,
+`pyproject.toml`, `go.mod` — or the registry for a new dep: `npm view`, `cargo search`, `uv pip index`)
 and read the docs for that major. Repo docs and existing call sites come first for how *this*
 repo uses it; vendor docs settle what the tool does. Not Stack Overflow, not old blog posts,
 not memory.

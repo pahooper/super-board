@@ -253,9 +253,72 @@
   //             wave. The launcher refuses a fallback lane without this value.
   "usage_fallback": "none",
 
+  // What the merge gate runs on the base-merged scratch worktree before a
+  // squash-merge. Onboard (and `/super-board stack` when this is empty) derives
+  // it from `stack`: every component's checks, then its unit and integration
+  // commands. Hand-written values are kept unless you ask for a replace.
   "verify_commands": [
-    "cd server && npm ci --silent && npm run typecheck && npm test"
+    "pnpm run check",
+    "pnpm exec vitest run",
+    "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "cargo test --manifest-path src-tauri/Cargo.toml"
   ],
+
+  // The project's stack: what it is built with and how each part is tested.
+  // Written by onboard step 4 (🧱 Stack) or `/super-board stack`; read by every
+  // lane through `.claude/bin/super-board-stack.py resolve`, by lint's
+  // pre-flight through `verify`, and by the merge gate via verify_commands.
+  // Absent → workers detect at runtime and say so (older configs keep working).
+  "stack": {
+    // "detected" (read from the repo) | "preset:<id>" (a new project's starter,
+    // references/stacks/presets.json) | "custom" (typed by the user).
+    "source": "preset:tauri-svelte",
+    "components": [
+      {
+        // Unique. `path` routes files: a changed file belongs to the component
+        // with the longest matching path; "." matches everything else.
+        "name": "core",
+        "path": "src-tauri",
+        "language": "rust",
+        "framework": "tauri",
+        "package_manager": "cargo",
+        // One entry per rung of the localisation ladder; null = no runner at
+        // that rung. Commands run from the repo root (a subfolder component
+        // carries `cd <path> &&` or a --manifest-path). `skill` = the
+        // mechanics skill workers load for that layer, or null.
+        "test": {
+          "unit": { "command": "cargo test --manifest-path src-tauri/Cargo.toml", "skill": null },
+          "integration": null,
+          "e2e": null
+        },
+        "checks": ["cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"],
+        // Extra skills workers load for this component (a framework skill, say).
+        "skills": []
+      },
+      {
+        "name": "ui",
+        "path": ".",
+        "language": "typescript",
+        "framework": "sveltekit",
+        "package_manager": "pnpm",
+        "test": {
+          "unit": { "command": "pnpm exec vitest run", "skill": "vitest" },
+          "integration": null,
+          "e2e": null
+        },
+        "checks": ["pnpm run check"],
+        "skills": []
+      }
+    ]
+  },
+
+  // How the Tester proves a card. "browser" (default when absent): drive the app
+  // in a browser — screenshots at three viewports for UI ACs, the standalone
+  // /super-qa crawl. "tests-only": run the stack's test layers and the test-gap
+  // check, evidence is test output; no crawl, no BASE_URL, no screenshots
+  // unless the stack has an e2e runner that produces them. Onboard picks
+  // tests-only for desktop apps, CLIs, libraries and services.
+  "qa": { "mode": "tests-only" },
 
   // Optional throttle on how many cards a single wave dispatches. ABSENT OR 0
   // MEANS UNLIMITED, which is the default and is usually what you want.

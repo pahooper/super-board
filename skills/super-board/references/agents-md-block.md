@@ -4,7 +4,7 @@ Board: Backlog · Ready · Building · QA · Review · Blocked · Done. Labels r
 
 | When | Use | NEVER |
 |---|---|---|
-| Set up / repair the board | `/super-board onboard` | DON'T hand-edit config mid-run |
+| Set up (new or existing) · change stack · idea → tickets | `/super-board onboard` · `stack` · `plan` | DON'T hand-edit config · DON'T hand-write tickets |
 | Check tickets before a run | `/super-board lint` | NEVER run with AC-less tickets |
 | Drain the board | `/super-board run` | NEVER build, test or merge from the orchestrator |
 | Board state / halt | `/super-board status` · `/super-board stop` | |
@@ -18,7 +18,7 @@ Board: Backlog · Ready · Building · QA · Review · Blocked · Done. Labels r
 
 | Rule | Value |
 |---|---|
-| Config | `.claude/super-board/configs/<slug>.json` |
+| Config · stack | `.claude/super-board/configs/<slug>.json` · runners, checks, skills per file: `.claude/bin/super-board-stack.py resolve --config <cfg> --files <f…>` · `qa.mode` browser \| tests-only · NEVER assume npm/Vitest/Playwright |
 | Isolation | 1 card · 1 worktree · 1 branch |
 | Merge | auto for normal changes · money, auth, destructive schema (DROP/TRUNCATE/RENAME) → human · PR > 400 changed lines → human |
 | Migrations | additive → robot migrates allowed DBs only · live DB ALWAYS → 🙋 needs you |

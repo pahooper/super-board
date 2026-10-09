@@ -2,7 +2,8 @@
 name: super-qa
 description: >-
   Super QA canonical workflow for functional bug-bash, evidence capture, and fix-ready issue filing.
-  Crawls routes from `docs/super-qa/queue.md` with Playwright, records screenshots/logs/HARs, files
+  Follows the project's stack and QA mode: `tests-only` projects (desktop apps, CLIs, libraries,
+  services) are proved by the stack's tests with no crawl. Web projects crawl routes from `docs/super-qa/queue.md` with Playwright, records screenshots/logs/HARs, files
   product-readable issues with clear type/priority/area labels, and continues until traversal is
   complete or only human-gated blockers remain. Crawling is always browser-driven, but the regression
   test it leaves behind is written at whichever layer the defect actually lives — unit or integration
@@ -67,6 +68,13 @@ A `Flaky` retry-only finding goes to `Flaky`; out-of-scope routes go to `Skip`. 
 
 ## Algorithm overview
 
+**Standalone crawl needs a browser target.** The BFS crawl below is for web apps: config
+`qa.mode: "browser"`, or `/super-qa <url>`. A project whose config says `tests-only` (a desktop
+app, CLI, library or service) has nothing to crawl — `/super-qa` there runs every component's
+stack tests (`super-board-stack.py resolve --config <cfg> --files`, no files = all), then the
+test-gap check against the base branch, and files High gaps as `tests` cards. It says so in
+one line instead of starting a crawl.
+
 You are the orchestrator. Your job: drive a BFS crawl of the target app
 that **builds `e2e/paths/` into a comprehensive Playwright suite** while
 fixing any bugs it stumbles on. Each iteration is a fresh worker — a sub-agent you launch in this
@@ -105,13 +113,13 @@ report it in the next status message — what was broken, what you committed
 (with SHA), and a one-line revert path, in the session output.
 
 After this loop has run for a while, `e2e/paths/` is the deliverable. CI runs
-`npm run test:e2e` on every PR. **No AI involvement in steady-state
+the stack's e2e command (`npm run test:e2e` in a typical web stack) on every PR. **No AI involvement in steady-state
 regression.** AI is only needed to extend the suite when new pages ship.
 
 ```
                 AI loop (build phase)            CI (steady state)
                ─────────────────────             ──────────────────
-/super-qa      →  e2e/paths/    →    npm run test:e2e on PR
+/super-qa      →  e2e/paths/    →    stack e2e command on PR
 (drains queue.md,        grows toward         catches regressions
  fixes bugs)             comprehensive        without any AI tokens
 ```
@@ -518,6 +526,9 @@ The worker (per `references/iteration-preamble.md`) must load and follow:
 - `testing-strategy` — coverage judgment per component type, and what to skip.
   Consult it for *what is worth testing*; it does not pick the layer. The
   localisation ladder in `references/iteration-preamble.md` picks the layer.
+- **The stack** — `python3 .claude/bin/super-board-stack.py resolve --config <cfg>` names
+  each component's unit / integration / e2e command and mechanics skill. Use those commands;
+  load those skills. The two below are what a TS/JS web stack usually names.
 - `vitest` — mechanics for unit and integration tests in a TS/JS repo. 19
   references (`core-expect`, `features-mocking`, `features-coverage`,
   `core-hooks`, `advanced-vi`).
@@ -631,21 +642,22 @@ See `.claude/skills/super-board/references/run.md` → Tester (first pass — re
 2. Read issue + PR + Builder's handoff.
 3. Build issue-scoped test plan: ONE observable test per AC.
 3b. Run the **Test-gap check** (above) against the Builder's diff; its High gaps join the plan.
-4. Run tests. Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/`. **For any UI-affecting issue, capture at least one screenshot per AC** (Playwright `page.screenshot` or `browse --screenshot`). Save with descriptive names: `ac1-<short-desc>.png`, not `screenshot1.png`.
+4. Run tests — the stack's commands (`python3 .claude/bin/super-board-stack.py resolve --config <cfg>`). Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/`. **`browser` mode (config `qa.mode`, default): for any UI-affecting issue, capture at least one screenshot per AC** (Playwright `page.screenshot` or `browse --screenshot`). Save with descriptive names: `ac1-<short-desc>.png`, not `screenshot1.png`. **`tests-only` mode:** no crawl, no `BASE_URL`, no screenshots — each AC is proved by a test the stack runs; use run.md → "Test evidence format".
 5. **Commit the evidence directory** to the issue branch alongside test files (`git add docs/super-board/runs/issue-<N>-qa-v<N>/ && git commit && git push`). This is non-optional — without it, the inline image markdown in the issue comment won't render on GitHub.
 6. **Pass** → tick the PR's `ac` block with proof lines, write `visual` for UI, append a `history` row, rewrite `status` (`super-board-pr-body.sh`) → `[qa] [report] ✅` PR comment with results + evidence path → **issue comment with screenshot evidence** (see "Issue-comment evidence format" below) → move QA → Review. Clean up worktree.
 7. **Fail** → leave failing ACs unchecked with the reason, append a `history` row, rewrite `status` → `[qa] [report] ❌` PR comment with per-AC expected/actual + repro file:line + evidence path + "what fixed should look like" → issue comment with the failure screenshots → increment rebuild counter → move QA → Ready (label `loop:rebuild-N`). Clean up worktree.
 
 ### Pass-handoff PR comment MUST include the test command
-Every Pass-handoff PR comment includes a `Local tests:` line with the EXACT command Reviewer will re-run as the self-verification gate:
+Every Pass-handoff PR comment includes a `Local tests:` line with the EXACT command Reviewer will re-run as the self-verification gate — taken from `super-board-stack.py resolve`, never guessed:
 ```
-Local tests:  npm test --run streaming
+Local tests:  pnpm exec vitest run src/lib/streaming     (a web stack)
+Local tests:  cargo test --manifest-path src-tauri/Cargo.toml streaming     (a Tauri core)
 ```
 This is non-optional. Reviewer re-runs this command; red → bounce back to QA.
 
 ### Issue-comment evidence format (REQUIRED — both pass and fail)
 
-The Tester's issue comment is the user's primary visibility into "is this actually fixed." A bare directory path is not sufficient — the user wants to *see* the proof on the issue page.
+The Tester's issue comment is the user's primary visibility into "is this actually fixed." A bare directory path is not sufficient — the user wants to *see* the proof on the issue page. In `tests-only` mode the proof is run.md → "Test evidence format" (one row per AC: test `file:line`, command, result) instead of screenshots; the rules below apply to `browser` mode.
 
 **The canonical template lives in `.claude/skills/super-board/references/run.md` → "Screenshot embed format" (right after Tester first pass).** Do not duplicate it here; both lanes (super-board Tester + standalone super-qa) follow that exact format. Summary of rules workers must obey:
 

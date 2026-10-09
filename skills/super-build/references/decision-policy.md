@@ -35,11 +35,36 @@ column is the skill to invoke.
 | Resolve an in-progress merge/rebase conflict | `mattpocock-skills:resolving-merge-conflicts` |
 | Prove a claim before calling work done | `verification-before-completion` |
 | Decide *which kind* of test a change needs | `testing-strategy` |
-| Write a unit or integration test (TS/JS) | `vitest` |
-| Write a browser e2e spec | `playwright-best-practices` |
+| Run, write or place a test in THIS repo | the stack: `.claude/bin/super-board-stack.py resolve --config <cfg>` (see "The stack" below) |
+| Write a unit or integration test (TS/JS, when the stack names it) | `vitest` |
+| Write a browser e2e spec (when the stack names it) | `playwright-best-practices` |
 
-The last four have no equivalent in the Matt Pocock pack and are kept as-is.
-Everything else routes through `mattpocock-skills:*`.
+`verification-before-completion`, `testing-strategy` and the stack's mechanics skills have no
+equivalent in the Matt Pocock pack and are kept as-is. Everything else routes through
+`mattpocock-skills:*`.
+
+## The stack — which runner, which mechanics skill
+
+The project's stack (config `stack`, chosen at onboard or with `/super-board stack`) names, per
+component, the unit / integration / e2e command, the checks, and the mechanics skill for each
+layer. **Read it; never infer the runner from habit or from `package.json` alone.**
+
+```
+python3 .claude/bin/super-board-stack.py resolve --config <cfg> --files <the files you touch>
+```
+
+It prints the component(s) your change touches (a file belongs to the component with the
+longest matching `path`), each with `unit`, `integration`, `e2e`, `checks` and `skills`.
+
+| Rule | |
+|---|---|
+| Run tests with | the component's `unit` / `integration` / `e2e` command, from the repo root, exactly as printed |
+| Load | every skill in its `skills` (via the Skill tool) before writing a test |
+| No skill for a layer | `mattpocock-skills:tdd` plus the runner command; read the runner's own docs (context7 / vendor) for syntax |
+| Layer is `null` | the stack has no runner at that rung: write the test one rung down, or add the runner in the PR and say so in the Solution block |
+| `warning: config has no stack` | the result was detected at runtime — use it, and say in the handoff that the board should run `/super-board stack` |
+| `Local tests:` line in handoffs | the exact command(s) from `resolve`, never a guess |
+| NEVER | assume npm, Vitest or Playwright in a repo whose stack names something else |
 
 **Interactive-only, never inside a worker.** These need a human at the keyboard
 and belong to the `lint` verb, not to a lane:
@@ -63,8 +88,9 @@ been caught by `lint`. Take the human gate instead — see below.
   collaborators → integration; (3) drive a browser → e2e; (4) needs a live
   third party → not a test, file a mock/contract gap. Write it at the rung you
   stopped on, not the rung you found it on.
-- **Mechanics** — the repo decides the library, so read `package.json`. TS/JS
-  unit and integration → `vitest`. Browser e2e → `playwright-best-practices`.
+- **Mechanics** — the stack decides the library: `super-board-stack.py resolve` names the
+  command and mechanics skill for the rung you stopped on (TS/JS repos usually map to
+  `vitest` and `playwright-best-practices`; a Rust core to `cargo test`; Python to `pytest`).
 
 `testing-strategy` informs *coverage* (what a component type is worth testing,
 what to skip) — it does not decide placement.
@@ -109,9 +135,9 @@ implement against the spec before you reach for design vocabulary.
 
 **On top of the row, when the situation calls for it:**
 
-- `vitest` or `playwright-best-practices` — picked by walking the localisation
-  ladder, never by label. A `ux` ticket whose defect reproduces in a pure
-  function gets a unit test.
+- the stack's mechanics skill for the rung — picked by walking the localisation
+  ladder, never by label (`super-board-stack.py resolve` names it). A `ux` ticket
+  whose defect reproduces in a pure function gets a unit test.
 - `testing-strategy` — when the issue leaves coverage scope open.
 - `mattpocock-skills:resolving-merge-conflicts` — on an in-progress conflict.
 - `mattpocock-skills:domain-modeling` — when the change names a concept the

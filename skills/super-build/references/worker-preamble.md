@@ -51,10 +51,12 @@ You are running UNATTENDED inside **Super Build**, dispatched to work on a singl
    code — if the plugin is not installed, apply the five-line fallback in
    `references/decision-policy.md` → "Simplest solution first"; `verification-before-completion` before the
    final commit, and `mattpocock-skills:code-review` once against your own diff
-   (see 6a). **When the situation calls for it:** `vitest` or
-   `playwright-best-practices` — picked by the localisation ladder in
-   `references/decision-policy.md`, **never by label**; `testing-strategy` when
-   coverage scope is open; `resolving-merge-conflicts` on a live conflict.
+   (see 6a). **The stack, always:** run `python3 .claude/bin/super-board-stack.py resolve
+   --config <cfg> --files <files you touch>` before writing a test; use its commands
+   and load its `skills` (`references/decision-policy.md` → "The stack"). **When the
+   situation calls for it:** the stack's mechanics skill for the rung the localisation
+   ladder picks, **never by label**; `testing-strategy` when coverage scope is open;
+   `resolving-merge-conflicts` on a live conflict.
 
    Invoke each via the Skill tool BEFORE writing any code. `tdd` tells you how to
    write a test worth having; the ladder tells you which layer to write it at.

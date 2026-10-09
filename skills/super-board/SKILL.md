@@ -1,15 +1,17 @@
 ---
 name: super-board
-description: GitHub-Project-driven autonomous pipeline. Five verbs — onboard, lint, status, run, stop — that take a Project board from empty to drained across Build → QA → Review → Done lanes (labels qa · bug · feature route each card), with graceful shutdown / resume. Use when the user says "super-board", "/super-board", "drain my GitHub project", "set up the autonomous loop", "kick off the headless build/QA pipeline", or "stop super-board".
+description: GitHub-Project-driven autonomous pipeline. Seven verbs — onboard, stack, plan, lint, status, run, stop — that take a project (new or existing, any stack) and its Project board from empty to drained across Build → QA → Review → Done lanes (labels qa · bug · feature route each card), with graceful shutdown / resume. Use when the user says "super-board", "/super-board", "drain my GitHub project", "set up the autonomous loop", "kick off the headless build/QA pipeline", or "stop super-board", "plan what to build", "change the test runner".
 ---
 
 # super-board — autonomous GitHub Project pipeline
 
-## Five verbs
+## Seven verbs
 
 | Verb | Where | What it does |
 |---|---|---|
-| `super-board onboard` | interactive | one-time setup wizard; writes `.claude/super-board/configs/<slug>.json` |
+| `super-board onboard` | interactive | one-time setup wizard (new or existing project); writes `.claude/super-board/configs/<slug>.json`, incl. the stack. A new project gets a tested, committed starter |
+| `super-board stack` | interactive | see or change what the project is built with and how it is tested (runners, checks, mechanics skills, QA mode); `stack starter` adds a new project's starter |
+| `super-board plan` | interactive | an idea becomes ordered tickets: Matt Pocock's `grilling` → `/to-spec` → `/to-tickets`, then the tickets go on the board and through lint |
 | `super-board lint` | interactive | walks active-pipeline issues, flags vague ACs, runs pre-flight readiness |
 | `super-board status` | interactive (read-only) | snapshot of active config, column counts, in-flight workers |
 | `super-board run` | in-session (default) | the autonomous loop: waves of the `super-board-wave` dynamic workflow, run from this session (`worker_backend: "claude-p"` opts into the legacy headless runner `.claude/bin/super-board-run.sh`). Also the resume command — state lives on the board, not in process memory. Accepts a model-tier flag: `--low` (haiku/sonnet/opus ladder), default = medium (sonnet/opus/session), `--high` (opus for every card). `--codex [--low|--high]` overrides the backend for every lane with the matching Codex GPT ladder; `--codex=<model>` or `codex.model` pins one model for every card (see `references/run-workflow.md`). A host with no Workflow tool (a Codex session) runs as `--codex` by itself. |
@@ -24,6 +26,8 @@ In Codex the skill is not a slash command: it is `$super-board <verb>`, found in
 | If user says | Load |
 |---|---|
 | `super-board onboard ...` | `references/onboard.md` |
+| `super-board stack ...` / "change the test runner" / "what's this built with" | `references/stack.md` |
+| `super-board plan ...` / "plan a feature" / "turn this idea into tickets" | `references/plan.md` |
 | `super-board lint ...` | `references/lint.md` |
 | `super-board status ...` | `references/status.md` |
 | `super-board run --codex[=<model>] ...`, or any `run` from a host with no Workflow tool (overrides any configured backend) | `references/run-workflow.md` → "Codex runs" |
@@ -33,11 +37,12 @@ In Codex the skill is not a slash command: it is `$super-board <verb>`, found in
 | "resume" / "pick up where I left off" / "restart after stop" | `references/stop.md` (resume = run; no separate verb) |
 | Anything about Blocked exits, 🙋 needs you, or dropping a card | `references/block-template.md` |
 | Config structure questions | `references/config-schema.json` |
+| Starter stacks, adding a preset | `references/stacks/presets.json` (+ `templates/<id>/`) |
 | Worker gh-call discipline / rate-limit recovery | `references/rate-limit-etiquette.md` (+ `scripts/super-board-gh-guard.sh`) |
 
 ## Orchestrator vs worker — the cardinal rule
 
-super-board is an **autonomous trader**. The interactive Claude session that invokes any of the five verbs is an **orchestrator**, not a worker. The orchestrator:
+super-board is an **autonomous trader**. The interactive Claude session that invokes any of the seven verbs is an **orchestrator**, not a worker. The orchestrator:
 
 - Validates preconditions, then dispatches per the config's `worker_backend`: `"workflow"` (default) → stay in-session and run the wave loop in `references/run-workflow.md` (launch workflow, reconcile, repeat); `"claude-p"` (legacy, explicit opt-in only) → `nohup .claude/bin/super-board-run.sh`, report PID + log path, exit. Explicit `--codex` overrides either backend with headless Codex waves; so does a host with no Workflow tool, or `bash .claude/bin/super-board-host.sh` printing `codex`. The orchestrator never does product work itself.
 - Delegates all build / QA / review work to workers — headless `claude -p` (claude-p backend), workflow lane agents (workflow backend), or headless `codex exec` (explicit `--codex`).

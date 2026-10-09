@@ -113,13 +113,13 @@ report it in the next status message — what was broken, what you committed
 (with SHA), and a one-line revert path, in the session output.
 
 After this loop has run for a while, `e2e/paths/` is the deliverable. CI runs
-`npm run test:e2e` on every PR. **No AI involvement in steady-state
+the stack's e2e command (`npm run test:e2e` in a typical web stack) on every PR. **No AI involvement in steady-state
 regression.** AI is only needed to extend the suite when new pages ship.
 
 ```
                 AI loop (build phase)            CI (steady state)
                ─────────────────────             ──────────────────
-/super-qa      →  e2e/paths/    →    npm run test:e2e on PR
+/super-qa      →  e2e/paths/    →    stack e2e command on PR
 (drains queue.md,        grows toward         catches regressions
  fixes bugs)             comprehensive        without any AI tokens
 ```

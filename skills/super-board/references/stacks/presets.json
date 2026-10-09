@@ -119,7 +119,7 @@
          "test": {"unit": {"command": "uv run pytest -q", "skill": null},
                   "integration": null,
                   "e2e": null},
-         "checks": ["uv run ruff check ."],
+         "checks": ["uv run ruff check --extend-exclude .claude ."],
          "skills": []}
       ],
       "scaffold": [

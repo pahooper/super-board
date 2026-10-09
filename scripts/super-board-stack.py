@@ -14,7 +14,8 @@ stack through this script, so nobody re-derives "which test runner?" from prose.
     super-board-stack.py apply    --config C --stack F [--qa-mode browser|tests-only] [--verify-commands keep|auto|replace] [--dry-run]
                                                                   write the stack into a config (atomic)
     super-board-stack.py ci       (--config C | --stack F)        print a GitHub Actions workflow for the stack
-    super-board-stack.py scaffold --preset ID [--name N] [--root DIR] [--dry-run] [--no-verify] [--commit] [--resume]
+    super-board-stack.py scaffold --preset ID [--name N] [--module M] [--root DIR] [--dry-run] [--no-verify]
+                                  [--commit] [--resume] [--force]
                                                                   new project: generator → starter tests → CI → first commit
 
 Every command prints one JSON object (`ci` prints YAML).
@@ -34,7 +35,11 @@ matching path ("." matches everything).
 `scaffold` runs the preset's generator in a staging folder, copies the result in WITHOUT
 overwriting anything that exists (README.md, AGENTS.md, .claude/ stay yours; .gitignore lines
 are merged), adds the starter tests and CI, then runs the stack's tests and checks. With
---commit and everything green it makes the first commit. Generators need the network.
+--commit and everything green it makes the first commit — of what the scaffold created or
+changed only; files that were already there before it ran are left unstaged. `added` lists
+every path it created (the "remove the starter" list). --resume re-runs the checks (and
+--commit) for a starter already added. Template files end in .tmpl so no test runner ever
+collects them from .claude/skills/. Generators need the network.
 
 Exit: 0 ok · 1 verify/scaffold found a problem · 64 usage · 65 unknown preset · 66 config unreadable.
 Stdlib only. Python 3.9+.
@@ -57,7 +62,8 @@ SKIP_DIRS = {".git", "node_modules", "target", "dist", "build", ".venv", "venv",
              "coverage", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "out", ".idea", ".vscode"}
 # Files that do not make a folder "a project" — onboard and install create several of them.
 NOT_SOURCE = {"readme", "license", "licence", ".gitignore", ".gitattributes", "agents.md", "claude.md",
-              ".ds_store", "changelog", "changelog.md", ".editorconfig"}
+              ".ds_store", "changelog", "changelog.md", ".editorconfig",
+              "skills-lock.json"}  # npx skills add (onboard step 1) writes it at the root
 SB_IGNORE = [".claude/super-board/active", ".claude/super-board/onboard-answers.json",
              ".claude/super-board/onboard-staged/", ".claude/super-board/backup/",
              ".claude/super-board/inflight/", ".claude/super-board/migrations/",
@@ -164,7 +170,18 @@ def catalog():
 
 def slug(name):
     s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+    if s[:1].isdigit():  # `cargo init --name 2048` is rejected; so are some package names
+        s = f"app-{s}"
     return s or "app"
+
+
+def norm_path(p):
+    """'./ui/' → 'ui', '' or './' → '.'"""
+    p = (p or ".").strip()
+    while p.startswith("./"):
+        p = p[2:]
+    p = p.rstrip("/")
+    return p or "."
 
 
 def walk(root, depth=3):
@@ -304,7 +321,7 @@ def python_component(root, d, ci):
     unit = f"{pre}pytest -q" if pytest else ("python -m unittest" if pm == "pip" else f"{pre}python -m unittest")
     checks = []
     if "ruff" in low or has("ruff.toml") or has(".ruff.toml"):
-        checks.append(f"{pre}ruff check .")
+        checks.append(f"{pre}ruff check --extend-exclude .claude .")
     if "mypy" in low:
         checks.append(f"{pre}mypy .")
     framework = next((fw for fw in ("django", "fastapi", "flask") if fw in low), None)
@@ -473,15 +490,15 @@ def root_for(argv, config_path=None):
 
 
 def components_for(stack, files):
-    comps = sorted(stack.get("components") or [], key=lambda c: -len(c.get("path") or "."))
+    comps = sorted(stack.get("components") or [], key=lambda c: -len(norm_path(c.get("path"))))
     if not files:
         return [dict(c, files=[]) for c in stack.get("components") or []]
     groups = {}
     for f in files:
-        f = f.lstrip("./") if f.startswith("./") else f
+        f = f[2:] if f.startswith("./") else f
         for c in comps:
-            p = (c.get("path") or ".").rstrip("/")
-            if p in (".", "") or f == p or f.startswith(p + "/"):
+            p = norm_path(c.get("path"))
+            if p == "." or f == p or f.startswith(p + "/"):
                 groups.setdefault(c["name"], []).append(f)
                 break
     return [dict(c, files=groups[c["name"]]) for c in stack.get("components") or [] if c["name"] in groups]
@@ -493,10 +510,26 @@ def changed_files(root, base):
                            capture_output=True, text=True)
         if r.returncode == 0:
             files = [x for x in r.stdout.splitlines() if x.strip()]
-            r2 = subprocess.run(["git", "-C", root, "status", "--porcelain"], capture_output=True, text=True)
-            files += [ln[3:].strip() for ln in r2.stdout.splitlines() if ln.strip()]
+            files += porcelain_paths(root)
             return sorted(set(files))
     return []
+
+
+def porcelain_paths(root):
+    """Changed and untracked paths from `git status --porcelain -z` (renames give the new path)."""
+    r = subprocess.run(["git", "-C", root, "status", "--porcelain", "-z", "--untracked-files=all"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return []
+    parts, paths, i = r.stdout.split("\0"), [], 0
+    while i < len(parts):
+        entry = parts[i]
+        if len(entry) > 3:
+            paths.append(entry[3:])
+            if entry[0] in "RC":  # the next field is the old path
+                i += 1
+        i += 1
+    return paths
 
 
 def skills_of(comp):
@@ -686,6 +719,9 @@ def apply(argv):
         raise ValueError(f"--stack {sp} is not a JSON object")
     stack = data.get("stack", data) if "components" not in data else data
     stack = {k: v for k, v in stack.items() if not k.startswith("_")}
+    for c in stack.get("components") or []:
+        if isinstance(c, dict):
+            c["path"] = norm_path(c.get("path"))
     errs = validate_stack(stack)
     if errs:
         return {"error": "invalid stack", "problems": errs}, 1
@@ -693,6 +729,8 @@ def apply(argv):
     if mode not in (None, "browser", "tests-only"):
         raise ValueError("--qa-mode is browser or tests-only")
     vc = flag(argv, "--verify-commands", "auto")
+    if vc not in ("keep", "auto", "replace"):
+        raise ValueError("--verify-commands is keep, auto or replace")
     changes = []
     new = dict(cfg)
     if cfg.get("stack") != stack:
@@ -723,8 +761,8 @@ def ci_yaml(stack):
     steps = ["      - uses: actions/checkout@v4"]
     if tauri:
         steps += ["      - name: Tauri system libraries",
-                  "        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev "
-                  "build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev"]
+                  "        run: " + json.dumps("sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev "
+                                             "build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev")]
     if langs & {"typescript", "javascript"}:
         if "pnpm" in pms:
             steps += ["      - uses: pnpm/action-setup@v4", "        with:", "          version: 10"]
@@ -741,12 +779,14 @@ def ci_yaml(stack):
         pm, path = c.get("package_manager"), c.get("path") or "."
         install = {"pnpm": "pnpm install --frozen-lockfile", "npm": "npm ci", "yarn": "yarn install --frozen-lockfile",
                    "bun": "bun install --frozen-lockfile", "uv": "uv sync"}.get(pm)
-        if install and not any(s.endswith(in_dir(path, install)) for s in steps):
-            steps += [f"      - name: Install ({c['name']})", f"        run: {in_dir(path, install)}"]
+        if install and not any(s.endswith(json.dumps(in_dir(path, install))) for s in steps):
+            steps += [f"      - name: {json.dumps('Install (' + c['name'] + ')')}",
+                      f"        run: {json.dumps(in_dir(path, install))}"]
     for c in comps:
         for cmd in list(c.get("checks") or []) + [((c.get("test") or {}).get(k) or {}).get("command") for k in ("unit", "integration")]:
             if cmd:
-                steps += [f"      - name: {c['name']}: {cmd.split('&& ')[-1][:60]}", f"        run: {cmd}"]
+                steps += [f"      - name: {json.dumps(c['name'] + ': ' + cmd.split('&& ')[-1][:60])}",
+                          f"        run: {json.dumps(cmd)}"]
     return "\n".join([
         "# Written by super-board's scaffold from the project's stack (config `stack`).",
         "# The merge gate runs the same commands locally (verify_commands).",
@@ -799,6 +839,8 @@ def write_templates(pid, dest, subs):
         for f in filenames:
             s = os.path.join(dirpath, f)
             r = os.path.relpath(s, base)
+            if r.endswith(".tmpl"):
+                r = r[: -len(".tmpl")]
             d = os.path.join(dest, r)
             if os.path.exists(d):
                 skipped.append(r.replace(os.sep, "/"))
@@ -887,9 +929,13 @@ def scaffold(argv):
     if resume:  # files are already in: re-run the tests and checks, then commit if green
         checks = []
         ok = all([run_cmd(["bash", "-c", c], root, checks) == 0 for c in derived_verify(stack)])
+        before = (load_json(manifest_path(root)) or {}).get("before")
+        committed = None
+        if ok and "--commit" in argv:
+            committed = commit(root, p, stack, before) if before is not None else \
+                {"ok": False, "error": "no scaffold record (.claude/super-board/scaffold/last.json) — commit by hand"}
         res = {"preset": pid, "name": name, "ok": ok, "resumed": True, "stack": stack,
-               "qa_mode": p.get("qa_mode", "tests-only"), "verify": checks,
-               "committed": commit(root, p, stack) if ok and "--commit" in argv else None}
+               "qa_mode": p.get("qa_mode", "tests-only"), "verify": checks, "committed": committed}
         if not ok:
             res["needs_system"] = system_libs_missing(checks, p)
         return res, 0 if ok else 1
@@ -897,6 +943,10 @@ def scaffold(argv):
         return {"error": "this folder already has source files — scaffold is for new projects (pass --force to add a starter anyway; --resume re-runs the checks of a starter already added)"}, 1
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     stage = os.path.join(root, ".claude", "super-board", "scaffold", stamp)
+    # What was already here (untracked or changed) before the scaffold: never committed by it.
+    before = porcelain_paths(root) if is_git(root) else []
+    os.makedirs(os.path.dirname(manifest_path(root)), exist_ok=True)
+    write_json(manifest_path(root), {"preset": pid, "name": name, "before": before, "at": stamp})
     os.makedirs(stage, exist_ok=True)
     log, copied, skipped, added_scripts = [], [], [], []
     ignored = ensure_gitignore(root, stack)
@@ -940,9 +990,12 @@ def scaffold(argv):
         shutil.rmtree(stage, ignore_errors=True)
     committed = None
     if ok and "--commit" in argv:
-        committed = commit(root, p, stack)
+        committed = commit(root, p, stack, before)
+    added = sorted(set(porcelain_paths(root)) - set(before)) if is_git(root) else sorted(copied)
+    added = [a for a in added if not a.startswith(".claude/super-board/")]
     res = {"preset": pid, "name": name, "ok": ok, "stack": stack, "qa_mode": p.get("qa_mode", "tests-only"),
-           "steps": log, "verify": checks, "copied": len(copied), "kept_yours": skipped,
+           "steps": log, "verify": checks, "copied": len(copied), "added": added if not committed else [],
+           "kept_yours": skipped,
            "scripts_added": added_scripts, "gitignore_added": ignored, "committed": committed,
            "notes": p.get("notes")}
     if not ok:
@@ -965,10 +1018,27 @@ def system_libs_missing(steps, p):
             "fix": p.get("notes") or "install the missing system tool or library, then re-run with --resume"}
 
 
-def commit(root, p, stack):
-    if subprocess.run(["git", "-C", root, "rev-parse", "--git-dir"], capture_output=True).returncode != 0:
+def manifest_path(root):
+    return os.path.join(root, ".claude", "super-board", "scaffold", "last.json")
+
+
+def is_git(root):
+    return subprocess.run(["git", "-C", root, "rev-parse", "--git-dir"], capture_output=True).returncode == 0
+
+
+def commit(root, p, stack, before):
+    """Commit what the scaffold created or changed. Paths that were already untracked or
+    changed before it ran stay unstaged (except .gitignore, which it merges into)."""
+    if not is_git(root):
         subprocess.run(["git", "-C", root, "init", "-q"], check=False)
     subprocess.run(["git", "-C", root, "add", "-A"], check=False)
+    keep_out = [b for b in (before or []) if b != ".gitignore"]
+    has_head = subprocess.run(["git", "-C", root, "rev-parse", "--verify", "-q", "HEAD"],
+                              capture_output=True).returncode == 0
+    # No commit yet → nothing to reset to: un-add instead (never touches the working tree).
+    unstage = ["reset", "-q", "--"] if has_head else ["rm", "--cached", "-r", "-q", "--ignore-unmatch", "--"]
+    for i in range(0, len(keep_out), 100):
+        subprocess.run(["git", "-C", root] + unstage + keep_out[i:i + 100], check=False, capture_output=True)
     units = [((c.get("test") or {}).get("unit") or {}).get("command") for c in stack["components"]]
     msg = "\n".join([f"🔧 [chore] scaffold: {p['label']} starter project", "",
                      f"- generated with {p.get('generator') or p['id']}",

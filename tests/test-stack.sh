@@ -54,7 +54,7 @@ pass
 P="$WORK/py"; mkdir -p "$P/tests"
 printf '[project]\nname="svc"\n[dependency-groups]\ndev=["pytest","ruff"]\n' > "$P/pyproject.toml"; : > "$P/uv.lock"
 OUT=$(python3 "$S" detect --root "$P")
-echo "$OUT" | q '.stack.components[0] | .package_manager == "uv" and .test.unit.command == "uv run pytest -q" and .checks == ["uv run ruff check ."]' \
+echo "$OUT" | q '.stack.components[0] | .package_manager == "uv" and .test.unit.command == "uv run pytest -q" and .checks == ["uv run ruff check --extend-exclude .claude ."]' \
   || fail "python: uv run pytest + ruff: $OUT"
 M="$WORK/mono"; mkdir -p "$M/api" "$M/web"
 printf 'module example.com/api\n' > "$M/api/go.mod"
@@ -75,6 +75,7 @@ pass
 # 5 — new vs unrecognised: README/.gitignore/AGENTS.md/.claude only = new; other files = not new.
 E="$WORK/empty"; mkdir -p "$E/.claude/skills/x"
 echo "# Idea" > "$E/README.md"; echo x > "$E/AGENTS.md"; echo node_modules > "$E/.gitignore"; echo x > "$E/.claude/skills/x/SKILL.md"
+echo '{"skills":{}}' > "$E/skills-lock.json"   # npx skills add (onboard step 1) writes this
 python3 "$S" detect --root "$E" | q '.new_project == true and .recognised == false' || fail "an empty project is new"
 D="$WORK/docs"; mkdir -p "$D"; echo "notes" > "$D/notes.txt"
 python3 "$S" detect --root "$D" | q '.new_project == false and .recognised == false' || fail "a folder with files is not new"
@@ -113,6 +114,12 @@ echo '{"components":[{"name":"x","path":".","language":"go","test":{"unit":{"ski
 OUT=$(python3 "$S" apply --config "$C" --stack "$WORK/bad.json" || true)
 echo "$OUT" | q '.error == "invalid stack" and (.problems | length == 2)' || fail "apply rejects a layer with no command and an unknown layer: $OUT"
 python3 "$S" apply --config "$C" --stack "$WORK/det.json" --qa-mode crawl >/dev/null 2>&1 && fail "qa mode is browser|tests-only" || true
+python3 "$S" apply --config "$C" --stack "$WORK/det.json" --verify-commands repalce >/dev/null 2>&1 && fail "a --verify-commands typo must fail" || true
+# A component path written as ./src-tauri/ is stored as src-tauri.
+jq '.stack.components[1].path = "./src-tauri/"' "$WORK/det.json" > "$WORK/det2.json"
+echo '{"version":1}' > "$WORK/c2.json"
+python3 "$S" apply --config "$WORK/c2.json" --stack "$WORK/det2.json" >/dev/null
+jq -e '.stack.components[1].path == "src-tauri"' "$WORK/c2.json" >/dev/null || fail "apply normalises component paths"
 pass
 
 # 8 — resolve: longest path wins, "." takes the rest, skills include the layer skills.
@@ -123,6 +130,9 @@ echo "$OUT" | q '.components[] | select(.path == "src-tauri") | .files == ["src-
 echo "$OUT" | q '.components[] | select(.path == ".") | .skills == ["vitest"]' || fail "resolve: ui skills: $OUT"
 python3 "$S" resolve --config "$C" --files src-tauri/Cargo.toml | q '.components | length == 1 and .[0].path == "src-tauri"' \
   || fail "resolve: one touched component only"
+python3 "$S" resolve --config "$C" --files ./src-tauri/x.rs ./.github/workflows/ci.yml \
+  | q '[.components[] | {path, files}] | sort_by(.path) == [{"path":".","files":[".github/workflows/ci.yml"]},{"path":"src-tauri","files":["src-tauri/x.rs"]}]' \
+  || fail "resolve: a ./ prefix is dropped, never the dot of .github"
 # No stack in the config → detected at runtime, with a warning.
 mkdir -p "$T/.claude/super-board/configs"; echo '{"version":1}' > "$T/.claude/super-board/configs/x.json"
 python3 "$S" resolve --config "$T/.claude/super-board/configs/x.json" --files src/a.ts \
@@ -151,16 +161,33 @@ pass
 # 10 — ci: one workflow with the stack's setup, install and every check + test.
 YML=$(python3 "$S" ci --stack "$WORK/det.json")
 for want in "pnpm/action-setup@v4" "dtolnay/rust-toolchain@stable" "libwebkit2gtk-4.1-dev" "pnpm install --frozen-lockfile" \
-            "run: pnpm exec vitest run" "run: cargo test --manifest-path src-tauri/Cargo.toml"; do
+            'run: "pnpm exec vitest run"' 'run: "cargo test --manifest-path src-tauri/Cargo.toml"'; do
   echo "$YML" | grep -qF -- "$want" || fail "ci yaml should contain '$want'"
 done
+# PyYAML is not on every CI runner: parse when it is there, say so when it is not.
+if ! python3 -c 'import yaml' 2>/dev/null; then echo "note: PyYAML missing — ci YAML parse check skipped"; else
+python3 - "$WORK/det.json" <<'PY' || fail "ci yaml must parse as YAML for every stack"
+import json, subprocess, sys, yaml
+stacks = [json.load(open(sys.argv[1]))["stack"]]
+ids = [p["id"] for p in json.load(open("skills/super-board/references/stacks/presets.json"))["presets"]]
+stacks += [json.loads(subprocess.run([sys.executable, "scripts/super-board-stack.py", "preset", i],
+                                     capture_output=True, text=True).stdout)["stack"] for i in ids]
+for st in stacks:
+    json.dump(st, open("/tmp/_sb_stack.json", "w"))
+    doc = yaml.safe_load(subprocess.run([sys.executable, "scripts/super-board-stack.py", "ci", "--stack", "/tmp/_sb_stack.json"],
+                                        capture_output=True, text=True).stdout)
+    steps = doc["jobs"]["checks"]["steps"]
+    assert all(isinstance(s, dict) for s in steps), steps
+    assert any("run" in s for s in steps)
+PY
+fi
 pass
 
 # 11 — scaffold, offline: a stub catalog whose generator is a shell command. Files merge in
 #      without overwriting, .gitignore lines merge, templates fill {{name}}, CI is written,
 #      the tests run, and --commit makes the first commit with build output ignored.
 CAT="$WORK/cat"; mkdir -p "$CAT/templates/stub/tests"
-echo 'name = "{{name}}"' > "$CAT/templates/stub/tests/starter.txt"
+echo 'name = "{{name}}"' > "$CAT/templates/stub/tests/starter.txt.tmpl"
 cat > "$CAT/presets.json" <<'JSON'
 {"categories":[{"id":"x","label":"X","description":"x","presets":["stub"]}],
  "presets":[{"id":"stub","label":"Stub","description":"offline","generator":"bash","qa_mode":"tests-only",
@@ -173,7 +200,7 @@ cat > "$CAT/presets.json" <<'JSON'
 JSON
 N="$WORK/new"; mkdir -p "$N"; git -C "$N" init -q
 git -C "$N" config user.email t@t; git -C "$N" config user.name t
-echo "# mine" > "$N/README.md"; echo "my-ignore" > "$N/.gitignore"
+echo "# mine" > "$N/README.md"; echo "my-ignore" > "$N/.gitignore"; echo "rules" > "$N/AGENTS.md"
 export SUPER_BOARD_STACKS="$CAT"
 python3 "$S" scaffold --preset stub --root "$N" --name "My App" --dry-run | q '(.plan | length == 4) and (.plan[0].run | test("my-app/src"))' \
   || fail "scaffold --dry-run shows the plan with the name filled in"
@@ -185,8 +212,12 @@ grep -qx "my-ignore" "$N/.gitignore" && grep -qx "gen-ignore" "$N/.gitignore" &&
 grep -qx 'name = "my-app"' "$N/tests/starter.txt" || fail "templates fill {{name}}"
 [ -f "$N/.github/workflows/ci.yml" ] || fail "scaffold writes CI"
 git -C "$N" ls-files | grep -q '^target/' && fail "build output must not be committed"
+git -C "$N" ls-files | grep -qE '^(AGENTS|README)\.md$' && fail "files that were there before the scaffold are not committed by it"
+[ -f "$N/AGENTS.md" ] || fail "the user's AGENTS.md is still there"
+[ -f "$N/tests/starter.txt" ] && [ ! -e "$N/tests/starter.txt.tmpl" ] || fail "templates drop their .tmpl suffix"
 git -C "$N" log -1 --format=%s | grep -q '^🔧 \[chore\] scaffold: Stub starter project$' || fail "commit follows the writing standard"
-[ ! -d "$N/.claude/super-board/scaffold" ] || [ -z "$(ls -A "$N/.claude/super-board/scaffold")" ] || fail "staging folder removed on success"
+[ -z "$(find "$N/.claude/super-board/scaffold" -mindepth 1 -type d 2>/dev/null)" ] || fail "staging folder removed on success"
+[ -f "$N/.claude/super-board/scaffold/last.json" ] || fail "scaffold keeps a record for --resume"
 python3 "$S" scaffold --preset stub --root "$N" >/dev/null && fail "scaffold refuses a folder with source files" || true
 python3 "$S" scaffold --preset stub --root "$N" --resume | q '.ok and .resumed' || fail "--resume re-runs the checks"
 pass
@@ -195,10 +226,17 @@ pass
 jq '.presets[0].components[0].checks = ["echo \"The system library `gdk-3.0` required by crate `gdk-sys` was not found.\" >&2; exit 101"]' \
   "$CAT/presets.json" > "$CAT/p2" && mv "$CAT/p2" "$CAT/presets.json"
 N2="$WORK/new2"; mkdir -p "$N2"
+git -C "$N2" init -q
 OUT=$(python3 "$S" scaffold --preset stub --root "$N2" --name app || true)
 echo "$OUT" | q '.ok == false and (.needs_system.why | test("gdk-3.0")) and (.next | test("--resume --commit"))' \
   || fail "scaffold names a missing system library and the resume step: $OUT"
+echo "$OUT" | q '(.added | index("src/main.rs")) and (.added | index(".github/workflows/ci.yml")) and (.added | all(startswith(".claude/super-board/") | not))' \
+  || fail "a failed scaffold lists every path it added (the remove-the-starter list): $OUT"
 unset SUPER_BOARD_STACKS
+pass
+
+# 12b — no template is ever a live test file inside an installed pack.
+find skills/super-board/references/stacks/templates -type f ! -name '*.tmpl' | grep -q . && fail "every template file must end in .tmpl"
 pass
 
 # 13 — every lane prompt and lane doc points workers at `resolve`, so no lane guesses a runner.

@@ -1,5 +1,68 @@
 # Release notes
 
+## v3.2.0 — 2026-10-09
+
+Any stack, new or existing projects. The board learns what a project is built with and how
+each part is tested, every lane runs those commands instead of assuming npm, a new folder gets
+a tested starter, and an idea becomes tickets through Matt Pocock's skills.
+
+### The stack
+
+- ✨ **`scripts/super-board-stack.py`.** One place that knows the stack. `detect` reads Node
+  (pnpm / npm / yarn / bun; Vitest, Jest, Playwright, Cypress, WebdriverIO), Rust (cargo test or
+  nextest, workspaces, Tauri), Python (uv / poetry / pip; pytest, ruff, mypy), Go, Java, .NET,
+  Ruby, Deno, Elixir and PHP, and prefers the commands your CI already runs. `resolve` tells a
+  worker which component a changed file belongs to (longest matching path) and that
+  component's unit / integration / e2e commands, checks and mechanics skills. `verify` probes
+  every runner and skill without running a test. `apply` validates a stack and writes it into
+  the config atomically. `ci` writes a GitHub Actions workflow from it.
+- 🗂️ **Config `stack` and `qa.mode`.** Documented in `config-schema.json`. `verify_commands` is
+  derived from the stack when empty; hand-written ones are kept unless you ask.
+- 🧪 **`qa.mode: "tests-only"`.** For desktop apps, CLIs, libraries and services. The Tester
+  proves each AC with the stack's tests (run.md → "Test evidence format": AC, asserting
+  `file:line`, command, result); no crawl, no `BASE_URL`, no screenshots. An AC no runner reaches
+  is `Not verified`, never passed on inspection. `browser` (the default) is unchanged.
+
+### Lanes follow it
+
+- 🔧 decision-policy.md gains "The stack"; the worker preamble, super-qa, super-review and both
+  lane prompts (workflow and Codex) send every worker to `resolve` first. The "read
+  `package.json`, TS/JS → vitest" rule is gone. The Reviewer reruns the stack's checks and flags
+  a `Local tests:` command that is not one of the stack's runners.
+
+### Onboarding — 9 steps
+
+- ✨ **Step 4 🧱 Stack**, before Branch. An existing repo: one block, "Use this stack?" (change one
+  part, or type your own). An empty folder: "What are you building?", then a starter.
+- ✨ **Six verified starters** (`references/stacks/presets.json` + `templates/`): SvelteKit,
+  React + Vite, Tauri 2 + Svelte, Rust CLI, Python (uv), Go. The generator runs in a staging
+  folder; nothing that exists is overwritten (README, AGENTS.md, .claude/ stay yours; .gitignore
+  lines merge, build output is ignored). The starter's tests and checks must pass before the
+  first commit, which holds only what the starter created. A missing system library (Tauri's
+  WebKit on Linux, say) is named with the fix and a `--resume` step.
+- 🛡️ Policies adds one permission line per stack command; Review writes the stack with
+  `apply`; the self-check verifies it. Branch uses the real default branch (a fresh `git init`
+  may say master).
+
+### Two new verbs
+
+- ✨ **`/super-board stack`** — see or change runners, checks, mechanics skills and QA mode
+  later; refuses mid-run; commits the config change.
+- ✨ **`/super-board plan`** — an idea becomes ordered tickets with no new machinery:
+  `mattpocock-skills:grilling` in-session, then you type `/to-spec` and `/to-tickets` (Pocock
+  made them user-run), then the new issues go to Backlog through `super-collect-file.sh --adopt`
+  and through `lint`. Unblocked cards can go straight to Ready.
+- 🧹 lint's pre-flight lists every missing stack runner as a `[ ]` gate (from `verify`), so a run
+  never starts with a runner the workers can't call.
+
+### Tests
+
+New `tests/test-stack.sh` (14 offline scenarios: detection across stacks and monorepos, new vs
+unrecognised folders, presets, apply, resolve routing, verify probes, CI YAML, an offline
+scaffold with a stub generator, the missing-library path, and that every lane points at
+`resolve`). Every preset was also scaffolded for real on Linux — Tauri included, with its
+system libraries — with tests, checks and the first commit green.
+
 ## v3.1.1 — 2026-10-04
 
 `/super-board run` inside a Codex session runs on Codex instead of failing.

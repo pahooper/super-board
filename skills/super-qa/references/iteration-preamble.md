@@ -295,7 +295,8 @@ acceptable; a fix can silently disable a feature to make a wrong spec pass.
 
 3. **Apply the minimal root-cause fix via TDD.** The failing spec is the
    red test. Make it green by changing the smallest amount of production
-   code. Then re-run `npm run lint` + `npm run check` — must stay green.
+   code. Then re-run the stack's checks for the components you touched
+   (`super-board-stack.py resolve --config <cfg> --files <files>` → `checks`) — must stay green.
 
 4. **Commit + push + open PR:**
    ```bash
@@ -749,8 +750,8 @@ npm run qa:report:render
 ```
 
 **Quality bar (must stay green before commit):**
-- `npm run lint`
-- `npm run check`
+- every `checks` command `super-board-stack.py resolve` prints for the components you
+  touched (a typical web stack: its lint and type-check scripts)
 
 **Stage explicitly (NEVER `git add .`):**
 ```bash

@@ -298,7 +298,8 @@ don't stall on prompts:
     "Bash(bash .claude/bin/super-board-codex-wave.sh:*)",
     "Bash(bash .claude/bin/super-board-host.sh:*)",
     "Bash(bash .claude/bin/super-board-pr-body.sh:*)", "Bash(gh pr edit:*)",
-    plus your project's test runners (e.g. "Bash(npm test:*)", "Bash(npx playwright:*)").
+    plus your stack's runners — onboard step 7 adds one "Bash(<first two words>:*)" per stack
+    command (e.g. "Bash(pnpm exec:*)", "Bash(cargo test:*)", "Bash(uv run:*)").
 
 Merging is NOT in the base list. On a board whose `merge_policy.default` is
 `"auto"`, `super-board onboard` offers the merge lines as a diff to approve

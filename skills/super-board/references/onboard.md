@@ -280,7 +280,7 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    • Yes — generate it, wire the tests and CI, make the first commit (Recommended)
    │    • No — just save the stack; I'll add the code
    ├─ Yes → the pick is the OK (like creating staging), right away:
-   │      Bash(python3 $SB/super-board-stack.py scaffold --preset <id> --name <folder> --commit)
+   │      Bash(python3 $SB/super-board-stack.py scaffold --preset <id> --name "<folder>" --commit)
    │    Needs the network (the generators come from npm / crates / PyPI). It never overwrites a
    │    file that exists — README.md, AGENTS.md and .claude/ stay yours; .gitignore lines merge.
    │    ├─ ok → `✓ Starter: <label> · tests green · committed <sha> on <branch>`; a remote exists →
@@ -291,8 +291,8 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    └─ another failure → the failing step's last lines, then AskUserQuestion "The starter
    │       didn't pass its own tests." [Fix it now (Recommended) — "I'll repair it until the tests
    │       pass, then commit" / Keep the files, fix later / Remove what the starter added].
-   │       Fix → edit, then `--resume --commit`. Remove → delete only the paths the result lists
-   │       as copied (git clean is not used; the user's files were never touched).
+   │       Fix → edit, then `--resume --commit`. Remove → delete only the paths in the result's
+   │       `added` list (git clean is not used; files that were there before are never in it).
    ├─ No → the preset's stack is staged; no files are written now.
    └─ After the step: `/super-board plan` is the DONE screen's next command (idea → tickets).
 
@@ -315,12 +315,13 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    A new project's branch is whatever step 4's commit landed on (`git init` may say master).
    │    No commit at all (starter declined, empty repo) → staging can't be cut yet: offer
    │    [Use <branch> for now (Recommended) — "create staging after the first merge"] only.
-   ├─ AskUserQuestion "Where should finished work merge?" (header "Branch"):
-   │    no staging:   • Create staging from main (Recommended) — "nothing goes live until you
-   │                    move it to main" (or "keeps main clean" with no deploy signal)
-   │                  • main — every merge goes live (or just "main" with no deploy signal)
-   │    staging found: • staging (Recommended) — already exists · • main — every merge goes live
-   ├─ Create staging → Bash(git push origin main:staging) right away (the pick is the OK).
+   ├─ AskUserQuestion "Where should finished work merge?" (header "Branch"); <default> = the
+   │    default branch `branch` reports (main, or master on a fresh `git init`):
+   │    no staging:   • Create staging from <default> (Recommended) — "nothing goes live until you
+   │                    move it to <default>" (or "keeps <default> clean" with no deploy signal)
+   │                  • <default> — every merge goes live (or just "<default>" with no deploy signal)
+   │    staging found: • staging (Recommended) — already exists · • <default> — every merge goes live
+   ├─ Create staging → Bash(git push origin <default>:staging) right away (the pick is the OK).
    └─ main kept with a deploy signal → step 7 defaults to "you merge everything", target_env "live".
 
 6. 📜 AGENTS.md — one line, one question; one short question per conflict
@@ -432,7 +433,8 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    │    `stack`, `qa` and — when empty — `verify_commands` from the stack.
    │    ├─ .claude/super-board/active ← <slug>
    │    ├─ .gitignore += .claude/super-board/active, onboard-answers.json, onboard-staged/,
-   │    │    backup/, inflight/, migrations/, upgrade.json (all under .claude/super-board/)
+   │    │    backup/, inflight/, migrations/, upgrade.json, scaffold/, cache/ (all under
+   │    │    .claude/super-board/; a starter already added them)
    │    ├─ settings.json: super-board-settings.py allow … ; protect main →
    │    │    super-board-settings.py hooks .claude/settings.json <pack>/hooks/settings-protect-main.json
    │    ├─ AGENTS.md / CLAUDE.md: super-board-agents-md.py backup, then write --src <staged>
@@ -529,7 +531,7 @@ answers are kept and it resumes at <step>".
 | 4 | Scaffold `needs_system` | One line with its `why` and `fix`; after the install, `scaffold --resume --commit`. Answers kept. |
 | 4 | Scaffold refuses ("already has source files") | Not a new project after all: take path A (detect again). |
 | 4 | `verify` lists a missing runner the user declined | Not an error: saved; lint's pre-flight lists it as a `[ ]` gate before any run. |
-| 5 | `git push origin main:staging` rejected | `🌿 Couldn't create staging (<reason>). Create it on GitHub, or pick main.` |
+| 5 | `git push origin <default>:staging` rejected | `🌿 Couldn't create staging (<reason>). Create it on GitHub, or pick <default>.` |
 | 6 | `coverage` exits 1 | Not an error: fix the mapping, re-run `coverage`, then show the result. |
 | 6 | Two managed blocks / dangling marker | `✋ AGENTS.md has <n> super-board markers. Leave one begin/end pair (or none) and re-run.` |
 | 8 | A ping fails | One ❌ line with the reason and what to add; the source is left out; onboard continues. |

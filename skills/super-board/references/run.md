@@ -321,17 +321,42 @@ column), never built unchecked. `qa` cards are not pre-flighted: nothing is buil
 
 ### Tester (first pass — repo-backed)
 
+**QA mode** — config `qa.mode` (`super-board-stack.py resolve` prints it as `qa_mode`):
+
+| Mode | How the Tester proves an AC | Evidence |
+|---|---|---|
+| `browser` (default when absent) | stack tests + drive the app in a browser for UI ACs | test output + screenshots at the three viewports |
+| `tests-only` (desktop apps, CLIs, libraries, services) | the stack's unit / integration / e2e commands only — no crawl, no `BASE_URL`, no dev server | test output per AC (command, pass count, the asserting `file:line`); screenshots only if the stack's e2e runner writes them |
+
+In `tests-only` a UI AC is proved at the lowest rung that reaches it (a component test, the
+stack's e2e runner when it has one). An AC no configured runner can reach is a test gap
+(step 4b): write it if the rung exists, else list it under `Not verified` with why — never pass
+it on inspection.
+
 1. Pull latest of base; checkout `issue-<N>-<slug>` into worktree `.claude/worktrees/issue-<N>-qa/`.
    A `qa` card has no branch yet: move it Ready → QA, then create the branch from the base.
 2. `target.url` set → health-check it first. Unhealthy → Block.
 3. Read issue + PR + Builder's handoff comment.
 4. Build issue-scoped test plan: one observable test per AC.
 4b. **Test-gap check** (super-qa → "Test-gap check (after build)"): map every AC to unit / component / e2e tests, hunt edge cases, write the High gaps red-first. A High gap that needs app code changed → Fail (step 7) with the gap list. Medium/Low go in the handoff under `Test gaps (not written)`.
-5. Run the tests. Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/`. For UI/visual ACs, capture screenshots at the standard viewports (1920×1080 desktop, 1024×768 tablet, 375×667 mobile). Commit the screenshots to the issue branch BEFORE writing the comment (the markdown image URLs depend on the files being present on the branch).
+5. Run the tests — the stack's commands for the touched components (`super-board-stack.py resolve`). Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/` (each command's output as `<component>-<layer>.log`). `browser` mode, UI/visual ACs: capture screenshots at the standard viewports (1920×1080 desktop, 1024×768 tablet, 375×667 mobile) and commit them to the issue branch BEFORE writing the comment (the markdown image URLs depend on the files being present on the branch). `tests-only` mode: no screenshots; the evidence table below replaces them.
 6. **Pass** → commit test files + screenshots to same branch + push → tick the `ac` block with proof lines, write `visual` for UI, append a `history` row, rewrite `status` → `[qa] [report] ✅` PR comment with results + evidence path **+ inline screenshot embeds** (see "Screenshot embed format" below) → issue comment with the SAME inline screenshot embeds → move card QA → Review. Clean up worktree.
 7. **Fail** → leave failing ACs unchecked with the reason, append a `history` row, rewrite `status` → `[qa] [report] ❌` PR comment with per-AC expected/actual + repro file:line + evidence path + "what fixed should look like" **+ inline screenshot embeds of the broken state** → issue comment with the same inline screenshots (showing what's wrong) → increment rebuild counter → move card QA → Ready (label `loop:rebuild-N`). Clean up worktree.
 
-#### Screenshot embed format (mandatory on every QA exit — added 2026-05-22)
+#### Test evidence format (`tests-only` mode — every QA exit)
+
+```markdown
+| AC | Proved by | Result |
+|---|---|---|
+| 1 | `src-tauri/tests/export.rs:41` · `cargo test --manifest-path src-tauri/Cargo.toml export` | ✅ 3 passed |
+| 2 | `src/lib/totals.test.ts:12` · `pnpm exec vitest run src/lib/totals` | ✅ 5 passed |
+| 3 | not reachable by a configured runner (needs the desktop shell) | ⚠️ Not verified |
+```
+
+One row per AC, the asserting `file:line` and the exact command, the pass/fail count from the
+output. Logs live in the evidence folder; link the folder once.
+
+#### Screenshot embed format (mandatory on every QA exit in `browser` mode — added 2026-05-22)
 
 Inline screenshots in the GitHub comment using raw-URL markdown so they render directly on the issue/PR page without anyone having to clone the repo:
 

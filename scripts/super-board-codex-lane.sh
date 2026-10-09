@@ -116,6 +116,8 @@ elif args.lane == 'review':
 Rerun the Tester's tests. When truth_gate triggers, apply super-review's fixed Adversarial mode brief inline in two distinct passes (code-grounder and historian); collect evidence and aggregate confidence against truth_threshold. Over-engineering is Should fix, never Blocker alone and never lowers confidence. Missing evidence fails closed.
 Merge ONLY through the unchanged .claude/bin/super-board-merge-gate.sh, pinning the exact head you reviewed at review pass using --expect-head "$HEAD" --config <config> --pr <N> --subject <title> --body-file <msg.md>. Never run bare gh pr merge or bypass the gate. Follow run.md Merge protocol and route every gate exit exactly: 2/5 rebase pass, 3 Blocked, 4 stay Review, 6 fresh review, 7/8 human gate with pinned approval-request. Respect human_approves_merge and merge_policy. Confirm MERGED <sha>, fetch base and prove merge-base --is-ancestor <sha> origin/<base> before closing issue or moving Done.
 '''
+if args.lane == 'qa':
+    prompt += 'QA mode: resolve prints qa_mode. tests-only → prove each AC with the stack\'s tests (no crawl, no BASE_URL, no screenshots; run.md → Test evidence format). browser → as run.md\'s Tester lifecycle, screenshots for UI ACs.\n'
 
 counts = {key: {'type': 'integer'} for key in ['fixed', 'notFixed', 'noLongerApplies']}
 properties = {

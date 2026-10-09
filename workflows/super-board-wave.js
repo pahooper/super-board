@@ -150,6 +150,9 @@ const lanePrompt = (lane, card) => [
   STACK(),
   `Commits, PR title, PR body blocks, comments: .claude/skills/super-board/references/writing-standard.md. Rewrite only your own PR body blocks, with .claude/bin/super-board-pr-body.sh.`,
   ...(lane === 'review' ? REVIEW_MEMORY : []),
+  ...(lane === 'qa'
+    ? [`QA mode: resolve prints qa_mode. tests-only → prove each AC with the stack's tests (no crawl, no BASE_URL, no screenshots; run.md → "Test evidence format"). browser → as run.md's Tester lifecycle, screenshots for UI ACs.`]
+    : []),
   ...(lane === 'qa' && card.status === 'Ready'
     ? [`This card is labelled qa: it skips Building. Move it Ready → QA yourself, create the issue branch from the base branch, and test what is already there (run.md → "qa cards").`]
     : []),
